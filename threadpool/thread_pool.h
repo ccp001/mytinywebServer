@@ -1,39 +1,38 @@
 //
-// Created by ccp on 2023/3/10.
+// Created by changwang on 2023/3/15.
 //
 
+#ifndef MYTINYWEBSERVER_THREAD_POOL_H
+#define MYTINYWEBSERVER_THREAD_POOL_H
 
-#ifndef TINYWEBSERVERINIT_THREAD_POOL_H
-#define TINYWEBSERVERINIT_THREAD_POOL_H
 
-#include "pthread.h"
+#include <queue>
+#include <iostream>
 
-class ThreadPool{
+template<typename T>
+class thread_pool {
 public:
+    thread_pool(int pool_size) : pool_size_(pool_size) {};
 
-    ThreadPool(int core_size,int max_size,int work_queue_size){
-        this.core_size_ = core_size;
-        this.max_size_ = max_size;
-        this->work_queue_size_ = work_queue_size;
+    int add_task(T* task) {
+        que_.push(task);
+        do_task();
+        return 0;
     }
 
-    void append(){
-
-    }
-
+    int do_task(){
+        if(!que_.empty()){
+            T* task = que_.front();
+            que_.pop();
+            task->do_run();
+        }
+        return 0;
+    };
 
 private:
-    int core_size_;
-    int max_size_;
-    int work_queue_size_;
-    std::pthread_t * work_queue_;
+    int pool_size_;
+    std::queue<T*> que_;
 };
 
 
-
-
-
-
-
-
-#endif //TINYWEBSERVERINIT_THREAD_POOL_H
+#endif //MYTINYWEBSERVER_THREAD_POOL_H
