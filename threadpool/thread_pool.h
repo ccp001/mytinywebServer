@@ -8,31 +8,56 @@
 
 #include <queue>
 #include <iostream>
+#include <thread>
 
-template<typename T>
 class thread_pool {
 public:
-    thread_pool(int pool_size) : pool_size_(pool_size) {};
+    thread_pool(int core_size, int max_size) : core_size_(core_size), max_size_(max_size), active_size_(0) {};
 
-    int add_task(T* task) {
-        que_.push(task);
-        do_task();
-        return 0;
-    }
-
-    int do_task(){
-        if(!que_.empty()){
-            T* task = que_.front();
-            que_.pop();
-            task->do_run();
+    template<typename FUNC, typename ...ARG>
+    void append(FUNC &&func, ARG &&...);
+    ~thread_pool(){
+        for (auto &item: thread_vec_){
+            item.join();
         }
-        return 0;
-    };
-
+    }
 private:
-    int pool_size_;
-    std::queue<T*> que_;
+    int active_size_;
+    int core_size_;
+    int max_size_;
+    std::queue<std::function<void()>> task_que_;
+    std::vector<std::thread> thread_vec_;
 };
+
+template<typename FUNC, typename ...ARG>
+void thread_pool::append(FUNC &&func, ARG &&...arg) {
+    if (active_size_ < core_size_) {
+        std::thread t([&]() {
+            std::function<void()> run_task = [=]() { func(arg...); };
+            while (true) {
+                if (run_task) {
+                    run_task();
+                    run_task = nullptr;
+                } else {
+                    if (!task_que_.empty()) {
+                        run_task = std::move(task_que_.front());
+                        task_que_.pop();
+                    } else {
+                        run_task = nullptr;
+                        std::cout<<"i am waiting task "<<std::endl;
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                    }
+                }
+            }
+        });
+        active_size_++;
+        thread_vec_.emplace_back(std::move(t));
+    } else {
+        task_que_.push([&]() { func(arg...); });
+        auto task_func = task_que_.front();
+        task_func();
+    }
+}
 
 
 #endif //MYTINYWEBSERVER_THREAD_POOL_H
